@@ -1,0 +1,7 @@
+# Test dependencies. faster-whisper is deliberately absent: the contract tests inject a
+# fake transcriber, so CI runs in seconds without downloading model weights. The real
+# model is exercised by the `slow` test, which is opt-in.
+fastapi==0.115.6
+python-multipart==0.0.20
+httpx==0.28.1
+pytest==8.3.4
