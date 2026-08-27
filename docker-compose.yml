@@ -1,0 +1,22 @@
+services:
+  postgres:
+    # pgvector-enabled Postgres: the extension the insights table needs is preinstalled.
+    image: pgvector/pgvector:pg17
+    container_name: podmonitor-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: podmonitor
+      POSTGRES_PASSWORD: podmonitor
+      POSTGRES_DB: podmonitor
+    ports:
+      - '5432:5432'
+    volumes:
+      - podmonitor-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U podmonitor -d podmonitor']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  podmonitor-pgdata:
