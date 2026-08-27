@@ -23,6 +23,10 @@ export async function ensureSeedPodcasts(): Promise<void> {
  * present, then polls every known podcast's feed and upserts podcasts/episodes.
  * Idempotent: re-running (retry, duplicate schedule tick, manual trigger) never creates
  * duplicate rows — see `ingestFeedXml` for how the guid/feed_url uniqueness is enforced.
+ *
+ * Every newly-inserted episode is fanned out onto `ingest-episode` — the INTEREST MATCH
+ * stage — exactly once. A repeat poll of the same feed content inserts nothing new, so it
+ * enqueues nothing new either.
  */
 export async function registerPollFeedsWorker(boss: PgBoss): Promise<void> {
   await boss.work(QUEUES.pollFeeds, async (jobs) => {
@@ -35,9 +39,15 @@ export async function registerPollFeedsWorker(boss: PgBoss): Promise<void> {
       for (const failure of result.failed) {
         console.error(`[poll-feeds] job ${job.id} failed to poll ${failure.feedUrl}: ${failure.error}`)
       }
+
+      const newEpisodeIds = result.succeeded.flatMap((summary) => summary.insertedEpisodeIds)
+      for (const episodeId of newEpisodeIds) {
+        await boss.send(QUEUES.ingestEpisode, { episodeId })
+      }
+
       console.log(
         `[poll-feeds] job ${job.id} polled ${result.succeeded.length} feed(s), ` +
-          `inserted ${result.succeeded.reduce((sum, s) => sum + s.episodesInserted, 0)} new episode(s), ` +
+          `inserted ${newEpisodeIds.length} new episode(s), ` +
           `${result.failed.length} failure(s)`,
       )
     }
