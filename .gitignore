@@ -13,3 +13,9 @@ next-env.d.ts
 
 .DS_Store
 npm-debug.log*
+
+# Python sidecar
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
