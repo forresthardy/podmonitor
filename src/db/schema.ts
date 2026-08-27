@@ -241,6 +241,12 @@ export const insights = pgTable(
     summaryId: uuid('summary_id')
       .notNull()
       .references(() => summaries.id, { onDelete: 'cascade' }),
+    /**
+     * 1-based position within its summary. This is the "#N" the cross-reference callout
+     * cites ("see insight #2 from ..."), so it has to be stable and stored, not derived
+     * from a query's row order.
+     */
+    ordinal: integer('ordinal').notNull(),
     text: text('text').notNull(),
     context: text('context'),
     timestampSec: integer('timestamp_sec'),
@@ -250,6 +256,8 @@ export const insights = pgTable(
   (table) => [
     index('insights_user_id_idx').on(table.userId),
     index('insights_summary_id_idx').on(table.summaryId),
+    // Makes re-delivery of the linking job a no-op insert rather than a duplicate insight.
+    uniqueIndex('insights_summary_ordinal_unique').on(table.summaryId, table.ordinal),
     // Cosine-similarity search over each user's own insights drives cross-referencing.
     index('insights_embedding_hnsw_idx').using(
       'hnsw',

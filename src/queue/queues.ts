@@ -48,4 +48,13 @@ export const QUEUE_OPTIONS: Partial<Record<QueueName, Omit<PgBoss.Queue, 'name'>
     // this; generous enough that a slow provider never races the expiry.
     expireInSeconds: 15 * 60,
   },
+  [QUEUES.linkInsights]: {
+    // Same shape as summarization — the classification call shares its rate limit — but a
+    // shorter delay: nothing downstream waits on links, so retrying sooner is free.
+    retryLimit: 3,
+    retryDelay: 2 * 60,
+    retryBackoff: true,
+    // One embedding batch plus a handful of small classification calls.
+    expireInSeconds: 15 * 60,
+  },
 }

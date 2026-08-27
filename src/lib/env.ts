@@ -21,6 +21,16 @@ function intEnv(name: string, fallback: number): number {
   return parsed
 }
 
+function floatEnv(name: string, fallback: number): number {
+  const raw = process.env[name]
+  if (!raw || raw.trim() === '') return fallback
+  const parsed = Number.parseFloat(raw)
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Environment variable ${name} must be a number, received: ${raw}`)
+  }
+  return parsed
+}
+
 export function databaseUrl(): string {
   return requireEnv('DATABASE_URL')
 }
@@ -103,4 +113,51 @@ export function llmMaxAttempts(): number {
 
 export function llmRetryBaseDelayMs(): number {
   return intEnv('LLM_RETRY_BASE_DELAY_MS', 2_000)
+}
+
+export type EmbeddingProviderName = 'local' | 'openai'
+
+/**
+ * Which embedding adapter the knowledge base uses. `local` (free, deterministic, lexical)
+ * is the default per the spec's ~$0 cost decision; `openai` buys semantic matching.
+ */
+export function embeddingProviderName(): EmbeddingProviderName {
+  const raw = (process.env.EMBEDDING_PROVIDER ?? 'local').trim().toLowerCase()
+  if (raw === 'local' || raw === 'openai') return raw
+  throw new Error(`Unsupported EMBEDDING_PROVIDER: ${raw} (expected one of: local, openai)`)
+}
+
+/** Overrides the active embedding provider's default model. */
+export function embeddingModelOverride(): string | undefined {
+  const value = process.env.EMBEDDING_MODEL?.trim()
+  return value && value !== '' ? value : undefined
+}
+
+export function embeddingRequestTimeoutMs(): number {
+  return intEnv('EMBEDDING_REQUEST_TIMEOUT_MS', 30_000)
+}
+
+/**
+ * Cosine similarity at or above which two insights are considered related.
+ *
+ * Provider-dependent by nature: a lexical embedding and a semantic one do not put
+ * "related" at the same number, so this is configuration rather than a constant. The
+ * default is tuned for the local feature-hash embedding, where unrelated insights sit
+ * near 0 and insights restating the same idea clear 0.5 comfortably.
+ */
+export function insightLinkThreshold(): number {
+  return floatEnv('INSIGHT_LINK_THRESHOLD', 0.55)
+}
+
+/** Cap on links written per new insight: a callout list is only useful while it is short. */
+export function insightLinkMaxPerInsight(): number {
+  return intEnv('INSIGHT_LINK_MAX_PER_INSIGHT', 3)
+}
+
+/**
+ * How many nearest neighbours pgvector returns before thresholding. Larger than the link
+ * cap so the threshold, not the fetch size, decides what survives.
+ */
+export function insightLinkCandidatePoolSize(): number {
+  return intEnv('INSIGHT_LINK_CANDIDATE_POOL', 20)
 }
