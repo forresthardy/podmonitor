@@ -3,9 +3,14 @@ import type { Database } from '@/db/client'
 import { episodes, podcasts, summaries, users } from '@/db/schema'
 import type { DigestSourceRow } from './assemble'
 
-/** Every account is implicitly subscribed to the weekly digest — there is no opt-out flag yet. */
+/**
+ * Accounts the weekly digest should go to.
+ *
+ * Filtered here rather than at send time so the opt-out in settings actually stops work:
+ * a user who turned the digest off is never assembled for, never rendered, never queued.
+ */
 export async function listSubscribedUserIds(db: Database): Promise<string[]> {
-  const rows = await db.select({ id: users.id }).from(users)
+  const rows = await db.select({ id: users.id }).from(users).where(eq(users.weeklyDigestOptIn, true))
   return rows.map((row) => row.id)
 }
 
