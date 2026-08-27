@@ -1,0 +1,4 @@
+# Repository policy for obvious workers.
+# Auto-detected from GitHub repo settings (2026-08-27).
+defaultBranch: main
+mergeMethod: merge
