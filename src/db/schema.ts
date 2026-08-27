@@ -70,6 +70,13 @@ export const users = pgTable(
     /** Stored lowercased and trimmed; see `normalizeEmail`. */
     email: text('email').notNull(),
     passwordHash: text('password_hash').notNull(),
+    /**
+     * Whether the weekly digest job includes this account. Defaults to true so existing
+     * accounts keep the behaviour they had before the column existed, and stored per user
+     * rather than inferred from activity: "stop emailing me" must be a decision the reader
+     * makes, not a side effect of a quiet week.
+     */
+    weeklyDigestOptIn: boolean('weekly_digest_opt_in').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex('users_email_unique').on(table.email)],

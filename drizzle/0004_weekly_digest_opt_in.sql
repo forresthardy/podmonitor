@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "weekly_digest_opt_in" boolean DEFAULT true NOT NULL;

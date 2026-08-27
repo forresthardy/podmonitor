@@ -65,6 +65,11 @@ export function postJson<T>(url: string, body?: unknown): Promise<T> {
   })
 }
 
+/** DELETE carries no body in this API; the response is still unwrapped the same way. */
+export function deleteJson<T>(url: string): Promise<T> {
+  return request<T>(url, { method: 'DELETE', headers: { accept: 'application/json' } })
+}
+
 export function patchJson<T>(url: string, body: unknown): Promise<T> {
   return request<T>(url, {
     method: 'PATCH',

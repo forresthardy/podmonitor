@@ -2,21 +2,11 @@ import type PgBoss from 'pg-boss'
 import { getDb } from '@/db/client'
 import { podcasts } from '@/db/schema'
 import { pollAllPodcasts } from '@/lib/feeds/ingest'
-import { SEED_SHOWS } from '@/lib/feeds/seed-shows'
+import { ensureSeedPodcasts } from '@/lib/feeds/seed-podcasts'
 import { QUEUES } from '../queues'
 
-/**
- * Makes sure the four seed shows exist as podcast rows. Safe to call on every poll run:
- * `onConflictDoNothing` on `feed_url` means an existing show is left exactly as-is (title
- * edits made after the fact, `last_polled_at` history, etc. are never reset).
- */
-export async function ensureSeedPodcasts(): Promise<void> {
-  const db = getDb()
-  await db
-    .insert(podcasts)
-    .values(SEED_SHOWS.map((show) => ({ feedUrl: show.feedUrl, title: show.title })))
-    .onConflictDoNothing({ target: podcasts.feedUrl })
-}
+// Re-exported for the tests and callers that already know this name from the poll worker.
+export { ensureSeedPodcasts }
 
 /**
  * Registers the `poll-feeds` pg-boss worker. On each job it ensures the seed shows are
