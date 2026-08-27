@@ -1,0 +1,2 @@
+ALTER TABLE "insights" ADD COLUMN "ordinal" integer NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "insights_summary_ordinal_unique" ON "insights" USING btree ("summary_id","ordinal");

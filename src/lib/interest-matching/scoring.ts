@@ -1,18 +1,15 @@
 /**
  * Interest-matching scoring: cheap first, transcript-based only when ambiguous.
  *
- * Provider choice (documented, per spec): embedding-based similarity via a small,
- * deterministic, locally-computed embedding — the "hashing trick" (feature hashing):
- * each token is hashed into one of a fixed number of buckets, bucket counts form the
- * vector, and the vector is L2-normalized so cosine similarity reduces to a dot product.
- * This is a real, standard technique (Weinberger et al., "Feature Hashing for Large Scale
- * Multitask Learning"), not a semantic model — but it is zero-cost, has zero network
- * dependency, and is fully deterministic, which matters for both the project's
- * roughly-zero-marginal-cost goal and for unit-testability. It is intentionally behind
- * the same shape a real embedding provider would have (`embedText`, `cosineSimilarity`),
- * so swapping in a hosted embedding API (OpenAI, Groq, etc.) later is a function-body
- * change, not a call-site rewrite.
+ * Similarity is computed with the shared feature-hashing embedding in
+ * `src/lib/embeddings/hashing.ts` (the "hashing trick", Weinberger et al.): deterministic,
+ * zero-cost, zero network dependency — which is what both the project's ~$0 goal and these
+ * unit tests need. It is lexical rather than semantic, and the knowledge base's provider
+ * factory (`src/lib/embeddings/provider.ts`) is where a hosted embedding API gets swapped
+ * in when semantics start to matter.
+
  */
+import { cosineSimilarity, hashingEmbedding } from '@/lib/embeddings/hashing'
 
 const DEFAULT_DIMENSIONS = 256
 
@@ -47,44 +44,15 @@ export interface ScoringPassResult extends InterestMatchResult {
   signal: MatchSignal
 }
 
-function tokenize(text: string): string[] {
-  return text
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter((token) => token.length > 1)
-}
-
-/** FNV-1a: fast, dependency-free, good-enough distribution for a fixed small bucket count. */
-function hashToken(token: string): number {
-  let hash = 0x811c9dc5
-  for (let i = 0; i < token.length; i++) {
-    hash ^= token.charCodeAt(i)
-    hash = Math.imul(hash, 0x01000193)
-  }
-  return hash >>> 0
-}
-
-/** Deterministic local "embedding": a hashed, L2-normalized bag-of-words vector. */
+/**
+ * Delegates to the shared feature-hashing embedding (`src/lib/embeddings/hashing.ts`),
+ * which the knowledge base also uses at its own width. Same technique, one implementation.
+ */
 export function embedText(text: string, dimensions = DEFAULT_DIMENSIONS): number[] {
-  const vector = new Array<number>(dimensions).fill(0)
-  for (const token of tokenize(text)) {
-    const bucket = hashToken(token) % dimensions
-    vector[bucket] = (vector[bucket] ?? 0) + 1
-  }
-
-  const norm = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0))
-  if (norm === 0) return vector
-  return vector.map((value) => value / norm)
+  return hashingEmbedding(text, dimensions)
 }
 
-/** Both inputs are expected L2-normalized, so the dot product is already the cosine similarity. */
-export function cosineSimilarity(a: number[], b: number[]): number {
-  let dot = 0
-  for (let i = 0; i < a.length; i++) dot += (a[i] ?? 0) * (b[i] ?? 0)
-  return dot
-}
+export { cosineSimilarity }
 
 export function classifyScore(score: number): MatchDecision {
   if (score >= AUTO_QUEUE_THRESHOLD) return 'auto_queued'
