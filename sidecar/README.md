@@ -62,15 +62,28 @@ fast during startup; `model_loaded` is `false` until the first transcription.
 `small` is the default. The tradeoff is transcription time against word error rate, and
 it matters because a 2-hour episode is the normal case for the seed shows.
 
-| Model | Weights (int8) | Relative CPU time | When to pick it |
-| --- | --- | --- | --- |
-| `small` | ~250 MB | 1x (baseline) | Default. Summarization tolerates occasional word errors — the LLM reads whole paragraphs, and an insight survives a misheard word. |
-| `medium` | ~750 MB | ~2.5-3x | Dense technical vocabulary, heavy accents, or noticeably wrong quotes. Notable quotes are stored verbatim, so a transcript error becomes a visible product defect. |
+Both rows below were measured on the same input: 148.7 s of real Huberman Lab audio, on
+an 8-vCPU / 7 GB CPU-only container, `int8`, greedy, VAD on.
+
+| Model | Weights (int8) | Measured speed | Segments | 2 h episode (extrapolated) | When to pick it |
+| --- | --- | --- | --- | --- | --- |
+| `small` | ~250 MB | 14 s → **10.6x realtime** | 19 | ~11 min | Default. Summarization tolerates occasional word errors — the LLM reads whole paragraphs, and an insight survives a misheard word. |
+| `medium` | ~750 MB | 37 s → **4.0x realtime** | 59 | ~30 min | Dense technical vocabulary, heavy accents, or noticeably wrong quotes. Notable quotes are stored verbatim, so a transcript error becomes a visible product defect. |
+
+On this sample the two transcripts agree on 97.1% of their text, so the honest summary is
+that `medium` costs 2.6x the CPU for a difference this sample cannot resolve into a
+quality verdict — there is no ground-truth reference here, so neither can be called more
+accurate on word error rate. What does differ measurably is granularity: `medium`
+produced 59 segments where `small` produced 19, which matters if timestamp-level citation
+back to the audio becomes a product requirement.
 
 Because processing is a background queue job, wall-clock time is not user-facing latency;
 the real cost of `medium` is throughput when several episodes queue at once. Start on
-`small`, move to `medium` if quote fidelity disappoints. Measured runtimes for this
-deployment are in the PR description.
+`small`, move to `medium` if quote fidelity disappoints.
+
+The 2-hour figures are extrapolated linearly from a 2.5-minute sample, not measured on a
+full episode. Long audio adds VAD and context-window effects, so treat them as an order
+of magnitude rather than a promise.
 
 ## Running it
 
