@@ -125,6 +125,42 @@ file, so drizzle-kit output never needs hand-editing.
 queue on boot; `src/queue/worker.ts` registers a stub handler per queue. pg-boss keeps its
 tables in a separate `pgboss` schema so it never collides with Drizzle migrations.
 
+## Knowledge base and cross-referencing
+
+Each stored summary's `keyInsights` become `insights` rows — the atomic, searchable unit —
+carrying a `vector(1536)` embedding and a 1-based `ordinal` (the "#N" a callout cites).
+The `link-insights` job runs right after summarization and cross-references every new
+insight against the same user's earlier ones:
+
+```
+summarize-episode ──▶ link-insights
+                        1. insert insights (unique per summary+ordinal)
+                        2. embed  (EMBEDDING_PROVIDER)
+                        3. pgvector cosine kNN over this user's other insights
+                        4. keep similarity >= INSIGHT_LINK_THRESHOLD, cap per insight
+                        5. LLM classifies each pair: extends | contradicts | echoes
+                        6. insert insight_links (insight, related, relation, score)
+```
+
+**Embedding provider (documented choice).** Default is `local`: deterministic feature
+hashing (the "hashing trick") computed in-process — free, offline, and reproducible in
+tests, at the cost of being lexical rather than semantic. `openai` swaps in
+`text-embedding-3-small` (1536 dimensions, ~$0.02/1M tokens) for real semantics. Both sit
+behind `EmbeddingProvider` in `src/lib/embeddings/types.ts`, selected by one env var, so
+adding a provider is a new adapter file and nothing else. Vectors from different providers
+are not comparable — changing provider means re-embedding existing insights.
+
+**Why the LLM classifies the relation.** Similarity says two insights are about the same
+thing; it cannot say whether the new one agrees. "X works" and "X does not work" sit close
+together in every vector space, so contradiction detection needs a reader. Similarity
+selects the pairs, the LLM labels them, and an unparseable answer degrades to `echoes`
+rather than dropping a link the reader would want to see.
+
+**Reading it back.** `listSummaryCrossReferences` (and `GET /api/summaries`) returns each
+link with a rendered callout — `This echoes insight #1 from "The Standard Oil Episode",
+Nov 2025` — so the web view and the weekly digest email cannot word it differently. Every
+query is scoped by `user_id`: one reader's knowledge base never surfaces another's insight.
+
 ## Tests
 
 ```bash
@@ -133,7 +169,11 @@ npm test
 ```
 
 The suite creates `podmonitor_test` if absent, migrates it, and truncates between tests.
-Coverage: password hashing, session token minting/hashing/expiry, credential validation,
+Coverage: embedding determinism and provider adapters, link thresholding on fixture
+vectors, relation parsing and its degrade path, callout formatting, a two-episode overlap
+integration test proving the second summary's insight links back to the first with a
+rendered callout (plus cross-user isolation and job idempotency), password hashing, session
+token minting/hashing/expiry, credential validation,
 the full register/login/session/revoke lifecycle against Postgres, route-level session
 handling (register, login, logout, forged cookie, unauthenticated access), two-user data
 isolation, and a pg-boss job round-trip plus the health probe.
