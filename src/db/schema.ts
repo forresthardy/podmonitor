@@ -306,6 +306,10 @@ export const digests = pgTable(
   (table) => [uniqueIndex('digests_user_week_unique').on(table.userId, table.weekOf)],
 )
 
+/** The pipeline states an episode can be in, as a TS union for exhaustive UI mapping. */
+export type EpisodeStatus = (typeof episodeStatus.enumValues)[number]
+export type TranscriptSourceName = (typeof transcriptSource.enumValues)[number]
+
 export type User = typeof users.$inferSelect
 export type Session = typeof sessions.$inferSelect
 export type Interest = typeof interests.$inferSelect
