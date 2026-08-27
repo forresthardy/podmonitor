@@ -28,6 +28,22 @@ export const transcriptSource = pgEnum('transcript_source', ['feed_tag', 'asr', 
 
 export const insightRelation = pgEnum('insight_relation', ['extends', 'contradicts', 'echoes'])
 
+/**
+ * Outcome of scoring one episode against one user's interests.
+ * `auto_queued`/`confirmed` are treated identically downstream (both mean "summarize this");
+ * `review` is the borderline band awaiting a human confirm/dismiss; `skipped` never surfaces.
+ */
+export const interestMatchDecision = pgEnum('interest_match_decision', [
+  'auto_queued',
+  'review',
+  'confirmed',
+  'dismissed',
+  'skipped',
+])
+
+/** Which pass produced the stored decision — see `src/lib/interest-matching/scoring.ts`. */
+export const interestMatchSignal = pgEnum('interest_match_signal', ['cheap', 'transcript'])
+
 export interface TranscriptSegment {
   start: number
   end: number
@@ -144,6 +160,37 @@ export const episodes = pgTable(
   ],
 )
 
+/**
+ * One row per (episode, user): the editorial decision layer sitting between the global
+ * processing pipeline (`episodes.status`) and per-user summarization. Kept separate from
+ * `episodes.status` because interest is per-user while episode processing is shared — two
+ * users can reach opposite decisions on the same episode.
+ */
+export const episodeInterestMatches = pgTable(
+  'episode_interest_matches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    episodeId: uuid('episode_id')
+      .notNull()
+      .references(() => episodes.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** The interest that produced the winning score, if any (null when no interest matched at all). */
+    interestId: uuid('interest_id').references(() => interests.id, { onDelete: 'set null' }),
+    score: real('score').notNull(),
+    signal: interestMatchSignal('signal').notNull(),
+    decision: interestMatchDecision('decision').notNull(),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('episode_interest_matches_episode_user_unique').on(table.episodeId, table.userId),
+    index('episode_interest_matches_user_decision_idx').on(table.userId, table.decision),
+  ],
+)
+
 export const transcripts = pgTable(
   'transcripts',
   {
@@ -254,6 +301,7 @@ export const digests = pgTable(
 export type User = typeof users.$inferSelect
 export type Session = typeof sessions.$inferSelect
 export type Interest = typeof interests.$inferSelect
+export type EpisodeInterestMatch = typeof episodeInterestMatches.$inferSelect
 export type Podcast = typeof podcasts.$inferSelect
 export type Episode = typeof episodes.$inferSelect
 export type Transcript = typeof transcripts.$inferSelect
