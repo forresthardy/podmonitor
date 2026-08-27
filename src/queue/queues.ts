@@ -57,4 +57,12 @@ export const QUEUE_OPTIONS: Partial<Record<QueueName, Omit<PgBoss.Queue, 'name'>
     // One embedding batch plus a handful of small classification calls.
     expireInSeconds: 15 * 60,
   },
+  [QUEUES.buildDigest]: {
+    // Transient email-provider failures (Resend/SMTP hiccup) are the realistic fault here;
+    // a few retries with backoff covers that without parking a week's digest for hours.
+    retryLimit: 3,
+    retryDelay: 5 * 60,
+    retryBackoff: true,
+    expireInSeconds: 15 * 60,
+  },
 }

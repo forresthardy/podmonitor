@@ -161,3 +161,52 @@ export function insightLinkMaxPerInsight(): number {
 export function insightLinkCandidatePoolSize(): number {
   return intEnv('INSIGHT_LINK_CANDIDATE_POOL', 20)
 }
+
+export type EmailProviderName = 'resend' | 'smtp'
+
+/**
+ * Which email adapter the digest job uses. Resend's free tier is the default per the
+ * spec's ~$0 cost decision; the `EmailProvider` interface is what makes switching to any
+ * SMTP relay (Postmark, SES, a self-hosted server) a config change, not a code change.
+ */
+export function emailProviderName(): EmailProviderName {
+  const raw = (process.env.EMAIL_PROVIDER ?? 'resend').trim().toLowerCase()
+  if (raw === 'resend' || raw === 'smtp') return raw
+  throw new Error(`Unsupported EMAIL_PROVIDER: ${raw} (expected one of: resend, smtp)`)
+}
+
+/** The verified sender address the digest email is sent from. */
+export function emailFromAddress(): string {
+  return requireEnv('EMAIL_FROM')
+}
+
+export function emailRequestTimeoutMs(): number {
+  return intEnv('EMAIL_REQUEST_TIMEOUT_MS', 30_000)
+}
+
+export function smtpHost(): string {
+  return requireEnv('SMTP_HOST')
+}
+
+export function smtpPort(): number {
+  return intEnv('SMTP_PORT', 587)
+}
+
+export function smtpSecure(): boolean {
+  return (process.env.SMTP_SECURE ?? 'false').trim().toLowerCase() === 'true'
+}
+
+/** Base URL the digest email links back to (the dashboard, by default local dev). */
+export function appBaseUrl(): string {
+  const value = process.env.APP_BASE_URL?.trim()
+  return value && value !== '' ? value : 'http://localhost:3000'
+}
+
+/**
+ * Default for the digest job's dry-run flag when a job payload doesn't specify one. Lets
+ * a staging deploy preview digests (render but never send) via one env var for QA, without
+ * touching the payload contract the digest assembly/render tests exercise directly.
+ */
+export function digestDryRunDefault(): boolean {
+  return (process.env.DIGEST_DRY_RUN ?? 'false').trim().toLowerCase() === 'true'
+}
