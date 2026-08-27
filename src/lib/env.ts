@@ -66,3 +66,41 @@ export function maxTranscriptFileBytes(): number {
 export function transcriptFetchTimeoutMs(): number {
   return intEnv('TRANSCRIPT_FETCH_TIMEOUT_MS', 60_000)
 }
+
+export type LlmProviderName = 'groq' | 'openai' | 'anthropic'
+
+/**
+ * Which LLM adapter the summarization job uses. Groq's free tier is the default per the
+ * spec's ~$0 cost decision; switching to a paid provider is this one variable, not a
+ * code change.
+ */
+export function llmProviderName(): LlmProviderName {
+  const raw = (process.env.LLM_PROVIDER ?? 'groq').trim().toLowerCase()
+  if (raw === 'groq' || raw === 'openai' || raw === 'anthropic') return raw
+  throw new Error(
+    `Unsupported LLM_PROVIDER: ${raw} (expected one of: groq, openai, anthropic)`,
+  )
+}
+
+/** Overrides the active provider's default model. Unset uses the adapter's own default. */
+export function llmModelOverride(): string | undefined {
+  const value = process.env.LLM_MODEL?.trim()
+  return value && value !== '' ? value : undefined
+}
+
+export function llmRequestTimeoutMs(): number {
+  return intEnv('LLM_REQUEST_TIMEOUT_MS', 60_000)
+}
+
+/**
+ * Attempts for one summarization call before giving up and letting pg-boss's own queue
+ * retry take over. Free-tier rate limits are the expected failure mode, so this is worth
+ * a few tries with backoff rather than failing the job on the first 429.
+ */
+export function llmMaxAttempts(): number {
+  return intEnv('LLM_MAX_ATTEMPTS', 4)
+}
+
+export function llmRetryBaseDelayMs(): number {
+  return intEnv('LLM_RETRY_BASE_DELAY_MS', 2_000)
+}

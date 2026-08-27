@@ -36,4 +36,16 @@ export const QUEUE_OPTIONS: Partial<Record<QueueName, Omit<PgBoss.Queue, 'name'>
     // that was actually progressing.
     expireInSeconds: 4 * 60 * 60,
   },
+  [QUEUES.summarizeEpisode]: {
+    // The in-process retry in `withRateLimitRetry` already absorbs most 429s; a job-level
+    // retry only fires once that budget is exhausted, so a longer delay here is
+    // deliberate — it gives a free-tier rate window real time to reset instead of
+    // hammering it again seconds later.
+    retryLimit: 3,
+    retryDelay: 5 * 60,
+    retryBackoff: true,
+    // One LLM call plus the per-attempt retry backoff should always finish well inside
+    // this; generous enough that a slow provider never races the expiry.
+    expireInSeconds: 15 * 60,
+  },
 }
