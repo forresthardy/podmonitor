@@ -1,6 +1,6 @@
 import PgBoss from 'pg-boss'
 import { databaseUrl } from '@/lib/env'
-import { ALL_QUEUES } from './queues'
+import { ALL_QUEUES, QUEUE_OPTIONS } from './queues'
 
 /** pg-boss owns its own schema so its tables never collide with Drizzle migrations. */
 export const PG_BOSS_SCHEMA = 'pgboss'
@@ -33,11 +33,20 @@ export function getBoss(): Promise<PgBoss> {
   return bossPromise
 }
 
-/** Creating a queue that already exists is a no-op, so this is safe on every boot. */
+/**
+ * Creating a queue that already exists is a no-op, so this is safe on every boot.
+ * An existing queue is updated rather than left alone, so a changed retry policy takes
+ * effect on deploy instead of only on a fresh database.
+ */
 export async function ensureQueues(boss: PgBoss): Promise<void> {
   for (const name of ALL_QUEUES) {
+    const options = { name, ...QUEUE_OPTIONS[name] }
     const existing = await boss.getQueue(name)
-    if (!existing) await boss.createQueue(name)
+    if (existing) {
+      await boss.updateQueue(name, options)
+    } else {
+      await boss.createQueue(name, options)
+    }
   }
 }
 
