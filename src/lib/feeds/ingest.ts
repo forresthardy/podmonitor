@@ -9,6 +9,8 @@ export interface IngestSummary {
   episodesSeen: number
   /** Episodes newly inserted this run — 0 on a repeat poll of an unchanged feed. */
   episodesInserted: number
+  /** Ids of the episodes newly inserted this run — the interest-match job fans out over these. */
+  insertedEpisodeIds: string[]
 }
 
 /**
@@ -53,7 +55,13 @@ export async function ingestFeedXml(feedUrl: string, xml: string): Promise<Inges
   }
 
   if (parsed.episodes.length === 0) {
-    return { podcastId: podcast.id, feedUrl, episodesSeen: 0, episodesInserted: 0 }
+    return {
+      podcastId: podcast.id,
+      feedUrl,
+      episodesSeen: 0,
+      episodesInserted: 0,
+      insertedEpisodeIds: [],
+    }
   }
 
   const inserted = await db
@@ -81,6 +89,7 @@ export async function ingestFeedXml(feedUrl: string, xml: string): Promise<Inges
     feedUrl,
     episodesSeen: parsed.episodes.length,
     episodesInserted: inserted.length,
+    insertedEpisodeIds: inserted.map((row) => row.id),
   }
 }
 

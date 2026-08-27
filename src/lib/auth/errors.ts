@@ -3,12 +3,14 @@ export type AuthErrorCode =
   | 'email_taken'
   | 'invalid_credentials'
   | 'unauthenticated'
+  | 'not_found'
 
 const STATUS_BY_CODE: Record<AuthErrorCode, number> = {
   invalid_input: 400,
   email_taken: 409,
   invalid_credentials: 401,
   unauthenticated: 401,
+  not_found: 404,
 }
 
 /** A failure the client is allowed to see, with a stable machine-readable code. */

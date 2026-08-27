@@ -1,16 +1,21 @@
 import { getBoss, stopBoss } from './boss'
 import { registerAcquireTranscriptWorker } from './handlers/acquire-transcript'
+import { registerIngestEpisodeWorker } from './handlers/ingest-episode'
 import { registerPollFeedsWorker, schedulePollFeeds } from './handlers/poll-feeds'
 import { ALL_QUEUES, QUEUES } from './queues'
 
 /**
- * Worker entry point. Each implemented stage registers its own worker from
- * `handlers/`; the remaining stages still only log, so an enqueued job is visible before
- * its stage exists. Running this process proves the queue round-trips end to end.
+ * Worker entry point. `poll-feeds`, `ingest-episode`, and `acquire-transcript` have real
+ * handlers; every other pipeline stage still only logs, since a later PR replaces each of
+ * those bodies in turn. Running this process proves the queue round-trips end to end.
  */
 
 /** Stages with a real handler. Everything else gets the placeholder logger below. */
-const IMPLEMENTED_QUEUES: readonly string[] = [QUEUES.pollFeeds, QUEUES.acquireTranscript]
+const IMPLEMENTED_QUEUES: readonly string[] = [
+  QUEUES.pollFeeds,
+  QUEUES.ingestEpisode,
+  QUEUES.acquireTranscript,
+]
 
 async function main(): Promise<void> {
   const boss = await getBoss()
@@ -26,6 +31,7 @@ async function main(): Promise<void> {
 
   await registerPollFeedsWorker(boss)
   await schedulePollFeeds(boss)
+  await registerIngestEpisodeWorker(boss)
   await registerAcquireTranscriptWorker(boss)
 
   console.log(`[worker] listening on ${ALL_QUEUES.length} queues`)
