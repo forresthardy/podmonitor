@@ -121,6 +121,16 @@ export const episodes = pgTable(
     publishedAt: timestamp('published_at', { withTimezone: true }),
     audioUrl: text('audio_url'),
     durationSec: integer('duration_sec'),
+    description: text('description'),
+    imageUrl: text('image_url'),
+    /**
+     * Raw `podcast:transcript` link from the feed, if the publisher provides one (e.g.
+     * Transistor's recent Acquired episodes). Populated at ingestion time; the transcript
+     * acquisition stage is what actually fetches it and sets `transcriptSource` to `feed_tag`.
+     */
+    transcriptUrl: text('transcript_url'),
+    itunesEpisode: integer('itunes_episode'),
+    itunesSeason: integer('itunes_season'),
     status: episodeStatus('status').notNull().default('discovered'),
     transcriptSource: transcriptSource('transcript_source'),
     failureReason: text('failure_reason'),
